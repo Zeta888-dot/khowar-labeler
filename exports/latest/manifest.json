@@ -1,0 +1,28 @@
+{
+ "created": "2026-10-12T16:37:37.979Z",
+ "options": {
+  "valRatio": 0.1,
+  "prompt": "<image>\nFree OCR. "
+ },
+ "counts": {
+  "total": 2,
+  "train": 2,
+  "val": 0,
+  "pages": 1
+ },
+ "warnings": [],
+ "rows": [
+  {
+   "id": "test-img_01",
+   "page": "test-img",
+   "line": 1,
+   "split": "train"
+  },
+  {
+   "id": "test-img_02",
+   "page": "test-img",
+   "line": 2,
+   "split": "train"
+  }
+ ]
+}

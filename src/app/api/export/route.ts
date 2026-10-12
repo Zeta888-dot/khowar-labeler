@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
-import { DATA_DIR, exportDataset } from "@/lib/storage";
+import { exportTraining } from "@/lib/export";
 
 export async function POST() {
   try {
-    const count = await exportDataset();
-    return NextResponse.json({ ok: true, count, path: DATA_DIR });
+    const r = await exportTraining();
+    return NextResponse.json({
+      ok: true,
+      count: r.total, // kept for the existing UI
+      path: r.dir,
+      ...r,
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const status = msg === "no labeled lines to export" ? 400 : 500;
+    return NextResponse.json({ error: msg }, { status });
   }
 }
