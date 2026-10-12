@@ -5,6 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import Workspace from "@/components/Workspace";
 import SegmentPanel from "@/components/SegmentPanel";
 import { listPages, type PageSummary } from "@/lib/api";
+import { ScanLine, Upload } from "lucide-react";
 
 export default function Home() {
   const [pages, setPages] = useState<PageSummary[]>([]);
@@ -58,8 +59,16 @@ export default function Home() {
             />
           </Workspace>
         ) : (
-          <div className="flex h-full items-center justify-center text-neutral-500">
-            Pehle ek scan upload karo ya list se page chuno 👈
+          <div className="flex h-full flex-col items-center justify-center gap-4 text-neutral-500">
+            <div className="rounded-full bg-neutral-900 p-6">
+              <ScanLine className="h-12 w-12 text-neutral-600" />
+            </div>
+            <div className="text-center">
+              <p className="text-base font-medium text-neutral-400">No page selected</p>
+              <p className="mt-1 text-sm text-neutral-600">
+                Upload a scan or pick a page from the sidebar
+              </p>
+            </div>
           </div>
         )}
       </main>

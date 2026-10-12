@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { exportDataset, uploadScans, type PageSummary } from "@/lib/api";
+import { Mountain, UploadCloud, CheckCircle, FileText, Download } from "lucide-react";
 
 type Props = {
   pages: PageSummary[];
@@ -24,7 +25,7 @@ export default function Sidebar({ pages, activeId, onSelect, onUploaded }: Props
   async function handleFiles(list: FileList | File[]) {
     const files = Array.from(list).filter((f) => f.type.startsWith("image/"));
     if (!files.length) {
-      setStatus({ kind: "err", text: "Sirf image files (jpg / png) upload karo." });
+      setStatus({ kind: "err", text: "Only image files (jpg / png) are allowed." });
       return;
     }
     setBusy(true);
@@ -37,7 +38,7 @@ export default function Sidebar({ pages, activeId, onSelect, onUploaded }: Props
           text: errors.map((e) => `${e.name}: ${e.error}`).join(" | "),
         });
       } else {
-        setStatus({ kind: "ok", text: `${created.length} page(s) ready ✅` });
+        setStatus({ kind: "ok", text: `${created.length} page(s) ready` });
       }
       if (created.length) onUploaded(created);
     } catch (e) {
@@ -66,7 +67,10 @@ export default function Sidebar({ pages, activeId, onSelect, onUploaded }: Props
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col border-r border-neutral-800 bg-neutral-900 text-neutral-100">
       <div className="border-b border-neutral-800 p-4">
-        <h1 className="text-base font-semibold">🏔️ Khowar Line Labeler</h1>
+        <h1 className="flex items-center gap-2 text-base font-semibold">
+          <Mountain className="h-5 w-5 text-blue-400" />
+          Khowar Line Labeler
+        </h1>
         <p className="mt-1 text-xs text-neutral-400">
           {totalLabeled} / {totalLines} lines labeled · {pages.length} page(s)
         </p>
@@ -93,7 +97,10 @@ export default function Sidebar({ pages, activeId, onSelect, onUploaded }: Props
             : "border-neutral-700 text-neutral-400 hover:border-neutral-500"
         } ${busy ? "pointer-events-none opacity-60" : ""}`}
       >
-        {busy ? "Working…" : "Scan drop karo (jpg / png) ya click karo"}
+        <div className="flex flex-col items-center gap-2">
+          <UploadCloud className={`h-8 w-8 transition ${over ? "text-blue-400" : "text-neutral-500"}`} />
+          {busy ? "Working…" : "Drop scans or click to upload"}
+        </div>
         <input
           ref={inputRef}
           type="file"
@@ -118,7 +125,7 @@ export default function Sidebar({ pages, activeId, onSelect, onUploaded }: Props
 
       <nav className="flex-1 overflow-y-auto">
         {pages.length === 0 && (
-          <p className="p-4 text-xs text-neutral-500">Abhi koi page nahi hai.</p>
+          <p className="p-4 text-xs text-neutral-500">No pages yet.</p>
         )}
         {pages.map((p) => {
           const done = p.lines > 0 && p.labeled === p.lines;
@@ -127,24 +134,28 @@ export default function Sidebar({ pages, activeId, onSelect, onUploaded }: Props
             <button
               key={p.id}
               onClick={() => onSelect(p.id)}
-              className={`block w-full border-b border-neutral-800 px-4 py-3 text-left text-sm transition hover:bg-neutral-800 ${
+              className={`flex w-full items-center gap-3 border-b border-neutral-800 px-4 py-3 text-left text-sm transition hover:bg-neutral-800 ${
                 p.id === activeId ? "bg-neutral-800" : ""
               }`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="truncate">{p.id}</span>
-                <span
-                  className={`shrink-0 text-xs ${done ? "text-emerald-400" : "text-neutral-400"}`}
-                >
-                  {done ? "✓ " : ""}
-                  {p.labeled}/{p.lines}
-                </span>
-              </div>
-              <div className="mt-2 h-1 overflow-hidden rounded bg-neutral-700">
-                <div
-                  className={`h-full ${done ? "bg-emerald-500" : "bg-blue-500"}`}
-                  style={{ width: `${pct}%` }}
-                />
+              {done ? (
+                <CheckCircle className="h-4 w-4 shrink-0 text-emerald-400" />
+              ) : (
+                <FileText className="h-4 w-4 shrink-0 text-neutral-500" />
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate">{p.id}</span>
+                  <span className={`shrink-0 text-xs ${done ? "text-emerald-400" : "text-neutral-400"}`}>
+                    {p.labeled}/{p.lines}
+                  </span>
+                </div>
+                <div className="mt-2 h-1 overflow-hidden rounded bg-neutral-700">
+                  <div
+                    className={`h-full ${done ? "bg-emerald-500" : "bg-blue-500"}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
               </div>
             </button>
           );
@@ -155,8 +166,9 @@ export default function Sidebar({ pages, activeId, onSelect, onUploaded }: Props
         <button
           onClick={handleExport}
           disabled={busy || totalLabeled === 0}
-          className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
         >
+          <Download className="h-4 w-4" />
           Export TSV / JSONL
         </button>
       </div>

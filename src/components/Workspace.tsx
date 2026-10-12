@@ -9,6 +9,14 @@ import {
   saveLabel,
   type PageDetail,
 } from "@/lib/api";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Save,
+  SkipForward,
+  Trash2,
+  Keyboard,
+} from "lucide-react";
 
 type Props = {
   pageId: string;
@@ -109,7 +117,7 @@ export default function Workspace({
   async function saveAndNext() {
     if (!page) return;
     if (idx < page.lines.length - 1) await goTo(idx + 1);
-    else if (await saveCurrent()) setNotice("Page complete 🎉");
+    else if (await saveCurrent()) setNotice("Page complete");
   }
 
   async function jumpUnlabeled() {
@@ -122,12 +130,12 @@ export default function Workspace({
         return;
       }
     }
-    setNotice("Saari lines labeled hain 🎉");
+    setNotice("All lines are labeled");
   }
 
   async function removeLine() {
     if (!page || !line) return;
-    if (!window.confirm(`Line ${line.i} delete karni hai? (image + label dono)`)) return;
+    if (!window.confirm(`Delete line ${line.i}? (image and label)`)) return;
     try {
       await deleteLine(page.id, line.i);
       const lines = page.lines.filter((l) => l.i !== line.i);
@@ -143,7 +151,7 @@ export default function Workspace({
 
   async function removePage() {
     if (!page) return;
-    if (!window.confirm(`Poora page "${page.id}" (saari images + labels) delete karna hai?`)) {
+    if (!window.confirm(`Delete the entire page "${page.id}" (all images and labels)?`)) {
       return;
     }
     try {
@@ -158,11 +166,11 @@ export default function Workspace({
     return <div className="p-8 text-sm text-neutral-400">Loading…</div>;
   }
   if (!page) {
-    return <div className="p-8 text-sm text-red-300">{error ?? "Page nahi mila."}</div>;
+    return <div className="p-8 text-sm text-red-300">{error ?? "Page not found."}</div>;
   }
 
   const btn =
-    "rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 transition hover:border-blue-500 disabled:cursor-not-allowed disabled:opacity-40";
+    "flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 transition hover:border-blue-500 disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
     <div className="flex flex-col gap-4 p-6 text-neutral-100">
@@ -180,8 +188,9 @@ export default function Workspace({
         </div>
         <button
           onClick={removePage}
-          className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 transition hover:border-red-500 hover:text-red-400"
+          className="flex items-center gap-1.5 rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 transition hover:border-red-500 hover:text-red-400"
         >
+          <Trash2 className="h-3.5 w-3.5" />
           Delete page
         </button>
       </div>
@@ -244,7 +253,7 @@ export default function Workspace({
             rows={2}
             value={draft}
             spellCheck={false}
-            placeholder="Yahan label type karo… (Enter = save + next)"
+            placeholder="Type the label here… (Enter = save + next)"
             onChange={(e) => setDraft(e.target.value)}
             onBlur={() => void saveCurrent()}
             onKeyDown={(e) => {
@@ -270,31 +279,37 @@ export default function Workspace({
           {/* actions */}
           <div className="flex flex-wrap items-center gap-2">
             <button className={btn} onClick={() => void goTo(idx - 1)} disabled={idx === 0}>
-              ← Prev
+              <ChevronLeft className="h-4 w-4" />
+              Prev
             </button>
             <button
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+              className="flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
               onClick={() => void saveAndNext()}
             >
-              Save &amp; Next ⏎
+              <Save className="h-4 w-4" />
+              Save &amp; Next
             </button>
             <button
               className={btn}
               onClick={() => void goTo(idx + 1)}
               disabled={idx >= total - 1}
             >
-              Next →
+              Next
+              <ChevronRight className="h-4 w-4" />
             </button>
             <button className={btn} onClick={() => void jumpUnlabeled()}>
+              <SkipForward className="h-4 w-4" />
               Next unlabeled
             </button>
             <button
-              className="rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 transition hover:border-red-500 hover:text-red-400"
+              className="flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 transition hover:border-red-500 hover:text-red-400"
               onClick={() => void removeLine()}
             >
-              Bad line (delete)
+              <Trash2 className="h-4 w-4" />
+              Bad line
             </button>
-            <span className="ml-auto text-xs text-neutral-500">
+            <span className="ml-auto flex items-center gap-1.5 text-xs text-neutral-500">
+              <Keyboard className="h-3.5 w-3.5" />
               Enter: save + next · Alt+↓ / Alt+↑: next / prev
             </span>
           </div>
@@ -318,7 +333,7 @@ export default function Workspace({
         </>
       ) : (
         <p className="rounded-lg border border-dashed border-neutral-700 p-6 text-sm text-neutral-400">
-          Is page mein koi line nahi mili. Neeche segmentation settings badal ke dobara try karo.
+          No lines found on this page. Adjust the segmentation settings below and try again.
         </p>
       )}
 

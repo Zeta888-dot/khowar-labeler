@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ApiError, getPage, overlayUrl, resegment, type SegParams } from "@/lib/api";
+import { RefreshCw, RotateCw, SlidersHorizontal } from "lucide-react";
 
 type Props = {
   pageId: string;
@@ -27,7 +28,7 @@ const SLIDERS: {
     min: 0.005,
     max: 0.15,
     step: 0.005,
-    hint: "Kam value = halke nuqtay / harkaat bhi line mein shamil",
+    hint: "Lower value = faint dots and diacritics are included in the line",
   },
   {
     key: "minHeight",
@@ -35,7 +36,7 @@ const SLIDERS: {
     min: 5,
     max: 80,
     step: 1,
-    hint: "Isse chhoti detected lines drop ho jati hain (noise)",
+    hint: "Detected lines smaller than this are dropped as noise",
   },
   {
     key: "mergeGap",
@@ -43,7 +44,7 @@ const SLIDERS: {
     min: 0,
     max: 40,
     step: 1,
-    hint: "Nazdeek bands ko jodta hai (line split ho rahi ho to barhao)",
+    hint: "Joins nearby bands (increase if a line is splitting)",
   },
   {
     key: "pad",
@@ -51,7 +52,7 @@ const SLIDERS: {
     min: 0,
     max: 30,
     step: 1,
-    hint: "Har crop ke ird-gird margin",
+    hint: "Margin around each crop",
   },
 ];
 
@@ -87,7 +88,7 @@ export default function SegmentPanel({ pageId, version, onResegmented }: Props) 
       } catch (e) {
         if (e instanceof ApiError && e.status === 409) {
           const ok = window.confirm(
-            "Is page ke saare typed labels delete ho jayenge. Phir bhi re-segment karna hai?"
+            "All typed labels on this page will be deleted. Re-segment anyway?"
           );
           if (!ok) return;
           await resegment(pageId, params, true);
@@ -105,7 +106,8 @@ export default function SegmentPanel({ pageId, version, onResegmented }: Props) 
 
   return (
     <details className="rounded-lg border border-neutral-800 bg-neutral-900 p-4 text-neutral-100">
-      <summary className="cursor-pointer text-sm text-neutral-300">
+      <summary className="flex cursor-pointer items-center gap-2 text-sm text-neutral-300">
+        <SlidersHorizontal className="h-4 w-4" />
         Segmentation check &amp; re-segment
       </summary>
 
@@ -133,7 +135,8 @@ export default function SegmentPanel({ pageId, version, onResegmented }: Props) 
                 checked={params.deskew}
                 onChange={(e) => setParams({ ...params, deskew: e.target.checked })}
               />
-              Deskew (tilted scan seedha karo)
+              <RotateCw className="h-4 w-4 text-neutral-400" />
+              Deskew (straighten tilted scans)
             </label>
 
             {SLIDERS.map((s) => (
@@ -159,12 +162,13 @@ export default function SegmentPanel({ pageId, version, onResegmented }: Props) 
               <button
                 onClick={() => void run()}
                 disabled={busy}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
               >
+                <RefreshCw className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
                 {busy ? "Working…" : "Re-segment this page"}
               </button>
               <span className="text-xs text-neutral-500">
-                Labels wipe ho jate hain, to typing se pehle settings tune kar lo.
+                Labels are wiped on re-segment, so tune settings before typing.
               </span>
             </div>
           </>
