@@ -6,8 +6,8 @@ import {
   CheckCircle2,
   Download,
   FileText,
+  Languages,
   Loader2,
-  Mountain,
   Search,
   UploadCloud,
   X,
@@ -100,7 +100,7 @@ export default function Sidebar({ pages, activeId, onSelect, onUploaded }: Props
       {/* header */}
       <div className="border-b border-neutral-800 p-4">
         <h1 className="flex items-center gap-2 text-base font-semibold">
-          <Mountain className="h-5 w-5 text-blue-400" />
+          <Languages className="h-5 w-5 text-blue-400" />
           Khowar Line Labeler
         </h1>
         <div className="mt-3 flex items-center justify-between text-xs text-neutral-400">
