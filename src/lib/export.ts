@@ -1,11 +1,10 @@
 import crypto from "crypto";
-import fs from "fs/promises";
-import path from "path";
-import { DATA_DIR } from "./storage";
+import { strToU8, zipSync, type Zippable } from "fflate";
+import { imageFile } from "./storage";
+import { BUCKET, supabaseAdmin } from "./supabase";
 
-export const EXPORTS_DIR = path.join(process.cwd(), "exports");
-/** Single, always-rebuilt output folder: exports/latest */
-export const LATEST_DIR = path.join(EXPORTS_DIR, "latest");
+export const EXPORT_BUCKET = "exports";
+export const EXPORT_FILE = "latest.zip";
 
 export type ExportOptions = {
   /** fraction held out for validation (0 = no val split) */
@@ -21,7 +20,10 @@ export const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
 
 export type ExportSummary = {
   name: string;
+  /** label shown in the UI (the zip file name) */
   dir: string;
+  /** signed download link for the zip (valid ~1 hour) */
+  url: string;
   total: number;
   train: number;
   val: number;
@@ -29,7 +31,7 @@ export type ExportSummary = {
   warnings: string[];
 };
 
-type RawRow = { id: string; page: string; line: number; src: string; text: string };
+type RawRow = { id: string; page: string; line: number; text: string };
 type Row = RawRow & { split: "train" | "val" };
 
 // Invisible direction/format marks that sneak in from keyboards.
@@ -54,44 +56,51 @@ const CONFUSABLE: Record<string, string> = {
   "\u0647": "Arabic Heh (ه); Urdu keyboard mein ہ (U+06C1) ya ھ (U+06BE) hota hai",
 };
 
+// all labeled lines, ordered by page then line (a deleted line has no row at all)
 async function collect(): Promise<RawRow[]> {
+  const sb = supabaseAdmin();
   const rows: RawRow[] = [];
-  let entries;
-  try {
-    entries = await fs.readdir(DATA_DIR, { withFileTypes: true });
-  } catch {
-    return rows;
-  }
-  const dirs = entries
-    .filter((e) => e.isDirectory())
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  for (const e of dirs) {
-    const dir = path.join(DATA_DIR, e.name);
-    let files: string[];
-    try {
-      files = await fs.readdir(dir);
-    } catch {
-      continue;
-    }
-    if (!files.includes("meta.json")) continue;
-
-    for (const f of files.filter((x) => /^label_\d+\.txt$/.test(x)).sort()) {
-      const num = f.match(/^label_(\d+)\.txt$/)![1];
-      const img = `image_${num}.jpg`;
-      if (!files.includes(img)) continue; // line was deleted
-      const text = normalizeLabel(await fs.readFile(path.join(dir, f), "utf-8"));
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await sb
+      .from("lines")
+      .select("page_id,line_index,label")
+      .neq("label", "")
+      .order("page_id")
+      .order("line_index")
+      .range(from, from + 999);
+    if (error) throw new Error(error.message);
+    for (const r of data ?? []) {
+      const text = normalizeLabel(r.label ?? "");
       if (!text) continue;
+      const num = String(r.line_index).padStart(2, "0");
       rows.push({
-        id: `${e.name}_${num}`,
-        page: e.name,
-        line: Number(num),
-        src: path.join(dir, img),
+        id: `${r.page_id}_${num}`,
+        page: r.page_id,
+        line: r.line_index,
         text,
       });
     }
+    if (!data || data.length < 1000) break;
   }
   return rows;
+}
+
+// downloads every line image from Storage (12 at a time)
+async function fetchImages(rows: Row[]): Promise<Map<string, Uint8Array>> {
+  const sb = supabaseAdmin();
+  const out = new Map<string, Uint8Array>();
+  let next = 0;
+  async function worker() {
+    while (next < rows.length) {
+      const r = rows[next++];
+      const p = `${r.page}/${imageFile(r.line)}`;
+      const { data, error } = await sb.storage.from(BUCKET).download(p);
+      if (error || !data) throw new Error(`image missing in storage: ${p}`);
+      out.set(r.id, new Uint8Array(await data.arrayBuffer()));
+    }
+  }
+  await Promise.all(Array.from({ length: 12 }, worker));
+  return out;
 }
 
 export async function exportTraining(
@@ -119,14 +128,6 @@ export async function exportTraining(
   const train = rows.filter((r) => r.split === "train");
   const val = rows.filter((r) => r.split === "val");
 
-  // --- output folder: always rebuilt from scratch (no duplicates across exports)
-  const dir = LATEST_DIR;
-  await fs.rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
-  await fs.mkdir(path.join(dir, "images"), { recursive: true });
-  for (const r of rows) {
-    await fs.copyFile(r.src, path.join(dir, "images", `${r.id}.jpg`));
-  }
-
   // --- formats
   const jsonl = (rs: Row[]) =>
     rs
@@ -142,13 +143,6 @@ export async function exportTraining(
   const paddle = (rs: Row[]) =>
     rs.map((r) => `images/${r.id}.jpg\t${r.text}`).join("\n") + "\n";
 
-  await fs.writeFile(path.join(dir, "train.jsonl"), jsonl(train), "utf-8");
-  await fs.writeFile(path.join(dir, "train.txt"), paddle(train), "utf-8");
-  if (val.length) {
-    await fs.writeFile(path.join(dir, "val.jsonl"), jsonl(val), "utf-8");
-    await fs.writeFile(path.join(dir, "val.txt"), paddle(val), "utf-8");
-  }
-
   // --- charset report + warnings
   const freq = new Map<string, number>();
   for (const r of rows) {
@@ -161,7 +155,6 @@ export async function exportTraining(
       code: "U+" + char.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0"),
       count,
     }));
-  await fs.writeFile(path.join(dir, "charset.json"), JSON.stringify(charset, null, 1), "utf-8");
 
   const warnings: string[] = [];
   for (const c of charset) {
@@ -172,10 +165,22 @@ export async function exportTraining(
     }
   }
 
-  // --- manifest (traceability back to page + line)
   const pageCount = new Set(rows.map((r) => r.page)).size;
-  await fs.writeFile(
-    path.join(dir, "manifest.json"),
+
+  // --- build the zip in memory (jpgs are already compressed -> level 0)
+  const images = await fetchImages(rows);
+  const files: Zippable = {};
+  for (const r of rows) {
+    files[`images/${r.id}.jpg`] = [images.get(r.id)!, { level: 0 }];
+  }
+  files["train.jsonl"] = strToU8(jsonl(train));
+  files["train.txt"] = strToU8(paddle(train));
+  if (val.length) {
+    files["val.jsonl"] = strToU8(jsonl(val));
+    files["val.txt"] = strToU8(paddle(val));
+  }
+  files["charset.json"] = strToU8(JSON.stringify(charset, null, 1));
+  files["manifest.json"] = strToU8(
     JSON.stringify(
       {
         created: new Date().toISOString(),
@@ -191,13 +196,29 @@ export async function exportTraining(
       },
       null,
       1
-    ),
-    "utf-8"
+    )
   );
+  const zip = zipSync(files);
+
+  // --- upload (always overwrites the previous export) + signed link
+  const sb = supabaseAdmin();
+  const up = await sb.storage.from(EXPORT_BUCKET).upload(EXPORT_FILE, Buffer.from(zip), {
+    contentType: "application/zip",
+    upsert: true,
+  });
+  if (up.error) throw new Error(`zip upload failed: ${up.error.message}`);
+
+  const signed = await sb.storage
+    .from(EXPORT_BUCKET)
+    .createSignedUrl(EXPORT_FILE, 3600, { download: "khowar_dataset.zip" });
+  if (signed.error || !signed.data) {
+    throw new Error(signed.error?.message ?? "could not create download link");
+  }
 
   return {
     name: "latest",
-    dir,
+    dir: EXPORT_FILE,
+    url: signed.data.signedUrl,
     total: rows.length,
     train: train.length,
     val: val.length,

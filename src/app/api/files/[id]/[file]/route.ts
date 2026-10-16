@@ -1,7 +1,6 @@
-import fs from "fs/promises";
-import path from "path";
 import { NextRequest, NextResponse } from "next/server";
-import { DATA_DIR, validId } from "@/lib/storage";
+import { validId } from "@/lib/storage";
+import { BUCKET, supabaseAdmin } from "@/lib/supabase";
 
 type Ctx = { params: Promise<{ id: string; file: string }> };
 
@@ -13,15 +12,18 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
 
-  try {
-    const buf = await fs.readFile(path.join(DATA_DIR, id, file));
-    return new Response(new Uint8Array(buf), {
-      headers: {
-        "Content-Type": "image/jpeg",
-        "Cache-Control": "no-store",
-      },
-    });
-  } catch {
+  const { data, error } = await supabaseAdmin()
+    .storage.from(BUCKET)
+    .download(`${id}/${file}`);
+
+  if (error || !data) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
+
+  return new Response(new Uint8Array(await data.arrayBuffer()), {
+    headers: {
+      "Content-Type": "image/jpeg",
+      "Cache-Control": "no-store",
+    },
+  });
 }
