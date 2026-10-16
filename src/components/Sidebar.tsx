@@ -29,6 +29,7 @@ type ExportResult = {
   ok: true;
   count: number;
   path: string;
+  url: string;
   train: number;
   val: number;
   pages: number;
@@ -209,8 +210,17 @@ export default function Sidebar({ pages, activeId, onSelect, onUploaded }: Props
               <X className="h-4 w-4" />
             </button>
           </div>
-          <p className="mt-1 text-neutral-500" title={exportInfo.path}>
-            exports/latest
+
+          <a
+            href={exportInfo.url}
+            download="khowar_dataset.zip"
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white outline-none transition hover:bg-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-300"
+          >
+            <Download className="h-4 w-4" />
+            Download ZIP
+          </a>
+          <p className="mt-1 text-center text-[10px] text-neutral-500">
+            Link valid for 1 hour · export again for a fresh one
           </p>
 
           <div className="mt-2 grid grid-cols-3 gap-2 text-center">

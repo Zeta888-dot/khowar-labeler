@@ -76,7 +76,9 @@ export function deleteLine(id: string, i: number) {
 
 // --------------------------------------------------------------- export
 export function exportDataset() {
-  return request<{ ok: true; count: number; path: string }>("/api/export", { method: "POST" });
+  return request<{ ok: true; count: number; path: string; url: string }>("/api/export", {
+    method: "POST",
+  });
 }
 
 // ---------------------------------------------------------------- urls
